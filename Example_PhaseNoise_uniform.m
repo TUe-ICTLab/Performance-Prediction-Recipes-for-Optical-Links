@@ -1,13 +1,19 @@
 function Example_PhaseNoise_uniform
 % This code generates part of the data used for Fig. 2 of the paper
-% "Performance Prediction Recipes for Optical Links", Photonics Technology
-% Letters, 2021, by Agrell, Secondini, Alvarado and Yoshida.
+% "Performance Prediction Recipes for Optical Links", submitted to Photonics 
+% Technology Letters, 2021, by Agrell, Secondini, Alvarado and Yoshida.
 %
 % Here the symbols are equally likely. For the same example, but using
 % probabilistic shaping, see Example_PhaseNoise_PS.m
 %
+% The code below includes a flag for using a "fast" version of AIR
+% computations. The "slow" computations use for loops for improved code
+% readability.
+%
 % E. Agrell, M. Secondini, A. Alvarado and T. Yoshida
 % Feb. 2021
+
+fast_flag=0; % Set to 1 to use fast versions of the code
 
 close all
 addpath(genpath('functions/'))
@@ -44,14 +50,25 @@ for pp=1:length(SNRdB)
     Metric.Pb(pp) = Compute_Pb(s.',b,ivec,y);
     %% AIR_b with HD (last paragraph of Sec. III)
     Metric.AIRb_HD(pp)=m*(1-binary_entropy(Metric.Pb(pp)));
-    %% AIR_s (5) with AWGN decoding metric
-    Metric.AIRs(pp) = Compute_AIRs(s.',ivec,y,qhandle_awgn);
-    %% AIR_b (6) with AWGN decoding metric
-    Metric.AIRb(pp) = Compute_AIRb(s.',b,ivec,y,qhandle_awgn);
-    %% AIR_s (5) with BLT decoding metric
-    Metric.AIRs_BLT(pp) = Compute_AIRs(s.',ivec,y,qhandle_blt);
-    %% AIR_b (6) with BLT decoding metric
-    Metric.AIRb_BLT(pp) = Compute_AIRb(s.',b,ivec,y,qhandle_blt);
+    if fast_flag==0 % Regular implementation
+        %% AIR_s (5) with AWGN decoding metric
+        Metric.AIRs(pp) = Compute_AIRs(s.',ivec,y,qhandle_awgn);
+        %% AIR_b (6) with AWGN decoding metric
+        Metric.AIRb(pp) = Compute_AIRb(s.',b,ivec,y,qhandle_awgn);
+        %% AIR_s (5) with BLT decoding metric
+        Metric.AIRs_BLT(pp) = Compute_AIRs(s.',ivec,y,qhandle_blt);
+        %% AIR_b (6) with BLT decoding metric
+        Metric.AIRb_BLT(pp) = Compute_AIRb(s.',b,ivec,y,qhandle_blt);
+    else % Fast implementation
+        %% AIR_s (5) with AWGN decoding metric
+        Metric.AIRs(pp) = Compute_AIRs_fast(s.',ivec,y,qhandle_awgn);
+        %% AIR_b (6) with AWGN decoding metric
+        Metric.AIRb(pp) = Compute_AIRb_fast(s.',b,ivec,y,qhandle_awgn);
+        %% AIR_s (5) with BLT decoding metric
+        Metric.AIRs_BLT(pp) = Compute_AIRs_fast(s.',ivec,y,qhandle_blt);
+        %% AIR_b (6) with BLT decoding metric
+        Metric.AIRb_BLT(pp) = Compute_AIRb_fast(s.',b,ivec,y,qhandle_blt);
+    end
     %% Plot received constellation (for visualization purposes only)
     figure(1);subplot(3,ceil(length(SNRdB)/3),pp);hold on;axis square;grid on;
     set(gcf,'units','normalized','outerposition',[0 0 1 1]);
@@ -61,16 +78,19 @@ for pp=1:length(SNRdB)
 end
 
 figure(2);
-subplot(2,1,1);title('Error probabilities');xlabel('SNR [dB]'); 
+subplot(2,1,1);
 semilogy(SNRdB,Metric.Ps,SNRdB,Metric.Pb,'Linewidth',2);grid on;hold on;
 axis([SNRdB(1),SNRdB(end),1e-3,1]);
-hh=legend('P_s','P_b');set(hh,'Location','southwest')
-subplot(2,1,2);title('Achievale information rates');xlabel('SNR [dB]');
+hh=legend('P_s','P_b');set(hh,'Location','southwest');
+title('Error probabilities');xlabel('SNR [dB]'); 
+
+subplot(2,1,2);
 plot(SNRdB,Metric.AIRb_HD,SNRdB,Metric.AIRs,SNRdB,Metric.AIRb,SNRdB,Metric.AIRs_BLT,SNRdB,Metric.AIRb_BLT,'Linewidth',2);
 grid on;hold on;
 axis([SNRdB(1),SNRdB(end),0.8,6.2]);
 hh=legend('AIRb-HD','AIR_s','AIR_b','AIR_s BLT','AIR_b BLT');
 set(hh,'Location','northwest')
 set(gcf,'units','normalized','outerposition',[0 0 1 1]);
+title('Achievale information rates');xlabel('SNR [dB]');
 
 return
