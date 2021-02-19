@@ -3,13 +3,17 @@ function Example_PhaseNoise_PS
 % "Performance Prediction Recipes for Optical Links", submitted to Photonics 
 % Technology Letters, 2021, by Agrell, Secondini, Alvarado and Yoshida.
 %
-% Slow, tutorial version (for-loop implementation)
-%
 % Here the symbols are probabilistically shaped. For the same example, but 
 % using uniform signaling, see Example_PhaseNoise_uniform.m
 %
+% The code below includes a flag for using a "fast" version of AIR
+% computations. The "slow" computations use for loops for improved code
+% readability.
+%
 % E. Agrell, M. Secondini, A. Alvarado and T. Yoshida
 % Feb. 2021
+
+fast_flag=0; % Set to 1 to use fast versions of the code
 
 close all
 addpath(genpath('functions/'))
@@ -44,18 +48,35 @@ for pp=1:length(SNRdB)
     sigma2_hat(pp)=NoiseVar(pp);
     sigmap2_hat(pp)=sigmap2;
     qhandle_blt=@(y,x) q_BLT(y,x,sigma2_hat(pp),sigmap2_hat(pp)); 
-    %% ASI (11) with AWGN decoding metric
-    Metric.ASI(pp) = Compute_ASIhg(s.',Pr_s,b,ivec,y,qhandle_awgn);
+    if fast_flag==0 % Regular implementation
+        %% ASI (11) with AWGN decoding metric
+        Metric.ASI(pp) = Compute_ASIhg(s.',Pr_s,b,ivec,y,qhandle_awgn);
+        %% P_b^ps (13) with AWGN decoding metric
+        Metric.Pbps(pp) = Compute_Pbps(s.',Pr_s,b,ivec,y,qhandle_awgn);
+        %% ASI (11) with BLT decoding metric
+        Metric.ASI_BLT(pp) = Compute_ASIhg(s.',Pr_s,b,ivec,y,qhandle_blt);
+        %% BER^ps (13) with BLT decoding metric
+        Metric.Pbps_BLT(pp) = Compute_Pbps(s.',Pr_s,b,ivec,y,qhandle_blt);
+    else % Fast implementation
+        %% ASI (11) with AWGN decoding metric
+        Metric.ASI(pp) = Compute_ASIhg_fast(s.',Pr_s,b,ivec,y,qhandle_awgn);
+        %% P_b^ps (13) with AWGN decoding metric
+        Metric.Pbps(pp) = Compute_Pbps_fast(s.',Pr_s,b,ivec,y,qhandle_awgn);
+        %% ASI (11) with BLT decoding metric
+        Metric.ASI_BLT(pp) = Compute_ASIhg_fast(s.',Pr_s,b,ivec,y,qhandle_blt);
+        %% BER^ps (13) with BLT decoding metric
+        Metric.Pbps_BLT(pp) = Compute_Pbps_fast(s.',Pr_s,b,ivec,y,qhandle_blt);
+    end
     %% AIR_b^ps (12) with AWGN decoding metric
     Metric.AIRps(pp) = max(entropy(Pr_s) - (1-Metric.ASI(pp))*m,0);
-    %% P_b^ps (13) with AWGN decoding metric
-    Metric.Pbps(pp) = Compute_Pbps(s.',Pr_s,b,ivec,y,qhandle_awgn);
-    %% ASI (11) with BLT decoding metric
-    Metric.ASI_BLT(pp) = Compute_ASIhg(s.',Pr_s,b,ivec,y,qhandle_blt);
     %% AIR_b^ps (12) with BLT decoding metric
     Metric.AIRps_BLT(pp) = max(entropy(Pr_s) - (1-Metric.ASI_BLT(pp))*m,0);
-    %% BER^ps (13) with BLT decoding metric
-    Metric.Pbps_BLT(pp) = Compute_Pbps(s.',Pr_s,b,ivec,y,qhandle_blt);
+    %% Plot received constellation (for visualization purposes only)
+    figure(1);subplot(3,ceil(length(SNRdB)/3),pp);hold on;axis square;grid on;
+    set(gcf,'units','normalized','outerposition',[0 0 1 1]);
+    for i=1:M,pnt=find(ivec==i);plot(y(1,pnt),y(2,pnt),'o','Color',rand(3,1));end
+    title(['SNR=',num2str(SNRdB(pp))]);axis([-2,2,-2,2]);
+    pause(0.1)
 end
 
 %% Figure
